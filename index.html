@@ -28,28 +28,39 @@
 
 <script>
 // Utility decoders
-function rot(text, n){return text.replace(/[a-zA-Z]/g,c=>String.fromCharCode((c.charCodeAt(0)-(c<='Z'?65:97)-n+26)%26+(c<='Z'?65:97)));}
-function atbash(text){return text.replace(/[a-zA-Z]/g,c=>String.fromCharCode((c<='Z'?90:122)-(c.charCodeAt(0)-(c<='Z'?65:97))));}
-function decodeBase64(t){try{return atob(t);}catch{return null;}}
-function decodeHex(t){try{return t.match(/.{1,2}/g).map(b=>String.fromCharCode(parseInt(b,16))).join('');}catch{return null;}}
-function decodeBase32(t){try{return b32decode(t);}catch{return null;}}
-function decodeBase58(t){try{return B58.decode(t);}catch{return null;}}
-function decodeBase85(t){try{return ascii85.decode(t);}catch{return null;}}
+function rot(text, n){return text.replace(/[a-zA-Z]/g,c=>String.fromCharCode((c.charCodeAt(0)-(c<='Z'?65:97)-n+26)%26+(c<='Z'?65:97))); }
+function atbash(text){return text.replace(/[a-zA-Z]/g,c=>String.fromCharCode((c<='Z'?90:122)-(c.charCodeAt(0)-(c<='Z'?65:97)))); }
+function decodeBase64(t){try{return atob(t);}catch{return null;} }
+function decodeHex(t){ try { if (typeof t !== 'string') return null; if(!/^[0-9a-fA-F]+$/.test(t) || t.length%2!==0) return null; return t.match(/.{1,2}/g).map(b=>String.fromCharCode(parseInt(b,16))).join(''); } catch{return null;} }
+function decodeBase32(t){ try { if (typeof b32decode === 'function') return b32decode(t); return null; } catch{return null;} }
+function decodeBase58(t){ try { if (typeof B58 !== 'undefined' && typeof B58.decode === 'function') return B58.decode(t); return null; } catch{return null;} }
+function decodeBase85(t){ try { if (typeof ascii85 !== 'undefined' && typeof ascii85.decode === 'function') return ascii85.decode(t); return null; } catch{return null;} }
 function reverseText(t){return t.split('').reverse().join('');}
 function urlDecode(t){try{return decodeURIComponent(t);}catch{return null;}}
-function morseDecode(t){const M={".-":"a","-...":"b","-.-.":"c","-..":"d",".":"e","..-.":"f","--.":"g","....":"h","..":"i",".---":"j","-.-":"k",".-..":"l","--":"m","-.":"n","---":"o",".--.":"p","--.-":"q",".-.":"r","...":"s","-":"t","..-":"u","...-":"v",".--":"w","-..-":"x","-.--":"y","--..":"z"};return t.split(" ").map(a=>M[a]||"?").join("");}
-function binToText(t){try{return t.match(/.{8}/g).map(b=>String.fromCharCode(parseInt(b,2))).join('');}catch{return null;}}
+function morseDecode(t){const M={".-":"a","-...":"b","-.-.":"c","-..":"d",".":"e","..-.":"f","--.":"g","....":"h","..":"i",".---":"j","-.-":"k",".-..":"l","--":"m","-.":"n","---":"o",".--.":"p","--.-":"q",".-.":"r","...":"s","-":"t","..-":"u","...-":"v",".--":"w","-..-":"x","-.--":"y","--..":"z","-----":"0",".----":"1","..---":"2","...--":"3","....-":"4",".....":"5","-....":"6","--...":"7","---..":"8","----.":"9","/":" "}; return t.split(" ").map(a=>M[a]||"?").join("");}
+function binToText(t){ try{ if (typeof t !== 'string') return null; if (!/^[01\s]+$/.test(t)) return null; const bits = t.replace(/\s+/g,''); if (bits.length%8!==0) return null; return bits.match(/.{8}/g).map(b=>String.fromCharCode(parseInt(b,2))).join(''); }catch{return null;} }
 
 // small vigenere brute (len 1-3)
-function vignereDecrypt(text,key){let o="";key=key.toLowerCase();for(let i=0;i<text.length;i++){let c=text[i];if(/[a-zA-Z]/.test(c)){let base=c<='Z'?65:97;let k=key[i%key.length].charCodeAt(0)-97;o+=String.fromCharCode((c.charCodeAt(0)-base-k+26)%26+base);}else o+=c;}return o;}
-function smallVigenere(text){const a="abcdefghijklmnopqrstuvwxyz";let results=[];for(let l=1;l<=3;l++){function gen(p){if(p.length===l){results.push(p);return;}for(const c of a)gen(p+c);}gen("");return results.map(k=>({k,r:vignereDecrypt(text,k)}));}
+function vignereDecrypt(text,key){ let o=""; key=key.toLowerCase(); for(let i=0;i<text.length;i++){ let c=text[i]; if(/[a-zA-Z]/.test(c)){ let base=c<='Z'?65:97; let k=key[i%key.length].charCodeAt(0)-97; o+=String.fromCharCode((c.charCodeAt(0)-base-k+26)%26+base); } else o+=c; } return o; }
+function smallVigenere(text){
+  const a="abcdefghijklmnopqrstuvwxyz";
+  let results=[];
+  for(let l=1;l<=3;l++){
+    function gen(p){
+      if(p.length===l){ results.push(p); return; }
+      for(const c of a) gen(p+c);
+    }
+    gen("");
+  }
+  return results.map(k=>({k,r:vignereDecrypt(text,k)}));
+}
 
 // XOR single-byte bruteforce
-function xorBrute(text){let arr=[];for(let k=1;k<256;k++){let out="";for(let i=0;i<text.length;i++) out+=String.fromCharCode(text.charCodeAt(i)^k);arr.push({k,out});}return arr;}
+function xorBrute(text){ let arr=[]; for(let k=0;k<256;k++){ let out=""; for(let i=0;i<text.length;i++){ out+=String.fromCharCode(text.charCodeAt(i)^k); } arr.push({k,out}); } return arr; }
 
 // scorer
 const COMMON=["the","and","you","that","ini","yang","apa","flag","kode","ctf","saya","kamu","akan","bisa"];
-function score(t){t=t.toLowerCase();let s=0;for(const w of COMMON)if(t.includes(w))s++;return s;}
+function score(t){ if(!t) return 0; t=t.toLowerCase(); let s=0; for(const w of COMMON) if(t.includes(w)) s++; return s; }
 
 function analyze(){
   const text=document.getElementById('inputText').value.trim();
@@ -57,80 +68,49 @@ function analyze(){
   let best={score:-1,method:"",result:""};
 
   // ROT
-  out+="=== ROT ===
-";
-  for(let i=1;i<=25;i++){let r=rot(text,i);let sc=score(r);out+=`ROT-${i}: ${r}
-`;if(sc>best.score)best={score:sc,method:`ROT-${i}`,result:r};}
+  out += "=== ROT ===\n";
+  for(let i=1;i<=25;i++){ let r=rot(text,i); let sc=score(r); out += `ROT-${i}: ${r}\n`; if(sc>best.score) best={score:sc,method:`ROT-${i}`,result:r}; }
 
   // Atbash
-  out+="
-=== Atbash ===
-";
-  let ab=atbash(text);out+=ab+"
-";if(score(ab)>best.score)best={score:score(ab),method:"Atbash",result:ab};
+  out += "\n=== Atbash ===\n";
+  let ab=atbash(text); out+=ab+"\n"; if(score(ab)>best.score) best={score:score(ab),method:"Atbash",result:ab};
 
   // Base64
-  out+="
-=== Base64 ===
-";
-  let b64=decodeBase64(text);out+=(b64?b64:"Invalid")+"
-";if(b64&&score(b64)>best.score)best={score:score(b64),method:"Base64",result:b64};
+  out += "\n=== Base64 ===\n";
+  let b64=decodeBase64(text); out += (b64?b64:"Invalid")+"\n"; if(b64&&score(b64)>best.score) best={score:score(b64),method:"Base64",result:b64};
 
   // Hex
-  out+="
-=== Hex ===
-";
-  let hx=decodeHex(text);out+=(hx?hx:"Invalid")+"
-";if(hx&&score(hx)>best.score)best={score:score(hx),method:"Hex",result:hx};
+  out += "\n=== Hex ===\n";
+  let hx=decodeHex(text); out += (hx?hx:"Invalid")+"\n"; if(hx&&score(hx)>best.score) best={score:score(hx),method:"Hex",result:hx};
 
   // Reverse
-  out+="
-=== Reverse ===
-";
-  let rv=reverseText(text);out+=rv+"
-";if(score(rv)>best.score)best={score:score(rv),method:"Reverse",result:rv};
+  out += "\n=== Reverse ===\n";
+  let rv=reverseText(text); out+=rv+"\n"; if(score(rv)>best.score) best={score:score(rv),method:"Reverse",result:rv};
 
   // URL decode
-  out+="
-=== URL Decode ===
-";
-  let ud=urlDecode(text);out+=(ud?ud:"Invalid")+"
-";if(ud&&score(ud)>best.score)best={score:score(ud),method:"URL Decode",result:ud};
+  out += "\n=== URL Decode ===\n";
+  let ud=urlDecode(text); out += (ud?ud:"Invalid")+"\n"; if(ud&&score(ud)>best.score) best={score:score(ud),method:"URL Decode",result:ud};
 
   // Binary
-  out+="
-=== Binary ===
-";
-  let bt=binToText(text);out+=(bt?bt:"Invalid")+"
-";if(bt&&score(bt)>best.score)best={score:score(bt),method:"Binary",result:bt};
+  out += "\n=== Binary ===\n";
+  let bt=binToText(text); out += (bt?bt:"Invalid")+"\n"; if(bt&&score(bt)>best.score) best={score:score(bt),method:"Binary",result:bt};
 
   // Morse
-  out+="
-=== Morse ===
-";
-  let ms=morseDecode(text);out+=ms+"
-";if(score(ms)>best.score)best={score:score(ms),method:"Morse",result:ms};
+  out += "\n=== Morse ===\n";
+  let ms=morseDecode(text); out+=ms+"\n"; if(score(ms)>best.score) best={score:score(ms),method:"Morse",result:ms};
 
   // Vigenere small brute
-  out+="
-=== Vigenere (short keys bruteforce) ===
-";
+  out += "\n=== Vigenere (short keys bruteforce) ===\n";
   let vig=smallVigenere(text);
-  vig.forEach(v=>{out+=`key=${v.k}: ${v.r}
-`;if(score(v.r)>best.score)best={score:score(v.r),method:`Vigenere key=${v.k}`,result:v.r};});
+  vig.forEach(v=>{ out+=`key=${v.k}: ${v.r}\n`; if(score(v.r)>best.score) best={score:score(v.r),method:`Vigenere key=${v.k}`,result:v.r}; });
 
   // XOR brute
-  out+="
-=== XOR single-byte bruteforce ===
-";
+  out += "\n=== XOR single-byte bruteforce ===\n";
   let xr=xorBrute(text);
-  xr.forEach(x=>{if(score(x.out)>best.score)best={score:score(x.out),method:`XOR key ${x.k}`,result:x.out};});
+  xr.forEach(x=>{ if(score(x.out)>best.score) best={score:score(x.out),method:`XOR key ${x.k}`,result:x.out}; });
 
-  out+="
-=== BEST MATCH ===
-";
-  out+=`Method: ${best.method}
-Result: ${best.result}`;
+  out += "\n=== BEST MATCH ===\n";
+  out += `Method: ${best.method}\nResult: ${best.result}`;
 
   document.getElementById('output').innerText=out;
 }
