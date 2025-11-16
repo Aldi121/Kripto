@@ -1,228 +1,43 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Universal Cipher Detector v2 - Fixed</title>
-  <style>
-    body { font-family: Arial, sans-serif; background:#0d1117; color:#e6edf3; padding:20px; }
-    h1 { color:#58a6ff; }
-    textarea { width:100%; height:120px; background:#161b22; color:#fff; border:1px solid #30363d; padding:10px; }
-    button { padding:10px 20px; background:#238636; color:white; border:none; cursor:pointer; margin-top:10px; }
-    button:hover { background:#2ea043; }
-    pre { background:#161b22; padding:10px; border:1px solid #30363d; overflow:auto; white-space:pre-wrap; }
-    .result-box { margin-top:20px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decryption Tool</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <h1>Universal Cipher Detector & Decryptor v2 — Fixed</h1>
-  <p>Supports: ROT, Base64, Hex, Reverse, Atbash, Vigenère (short-key brute), XOR single-byte brute, URL decode, Morse, Binary. (Removed undefined decoders to avoid runtime errors.)</p>
-
-  <textarea id="inputText" placeholder="Masukkan teks terenkripsi..."></textarea>
-  <button onclick="analyze()">Decrypt</button>
-
-  <div class="result-box">
-    <h2>Hasil:</h2>
-    <pre id="output"></pre>
-  </div>
-
-<script>
-// --- Utility decoders (safe, won't throw) ---
-function rot(text, n){
-  return text.replace(/[a-zA-Z]/g, c => {
-    const base = c <= 'Z' ? 65 : 97;
-    return String.fromCharCode((c.charCodeAt(0) - base - n + 26) % 26 + base);
-  });
-}
-
-function atbash(text){
-  return text.replace(/[a-zA-Z]/g, c => {
-    const base = c <= 'Z' ? 65 : 97;
-    const offset = c.charCodeAt(0) - base;
-    const flipped = (25 - offset) + base;
-    return String.fromCharCode(flipped);
-  });
-}
-
-function decodeBase64(t){
-  try { return atob(t); } catch(e) { return null; }
-}
-
-function decodeHex(t){
-  try {
-    // only accept even-length hex with valid chars
-    if(!/^[0-9a-fA-F]+$/.test(t) || t.length % 2 !== 0) return null;
-    return t.match(/.{1,2}/g).map(b => String.fromCharCode(parseInt(b,16))).join('');
-  } catch(e) { return null; }
-}
-
-function reverseText(t){ return t.split('').reverse().join(''); }
-function urlDecode(t){ try { return decodeURIComponent(t); } catch(e) { return null; } }
-
-function morseDecode(t){
-  const M = {
-    ".-":"a","-...":"b","-.-.":"c","-..":"d",".":"e","..-.":"f","--.":"g",
-    "....":"h","..":"i",".---":"j","-.-":"k",".-..":"l","--":"m","-.":"n",
-    "---":"o",".--.":"p","--.-":"q",".-.":"r","...":"s","-":"t","..-":"u",
-    "...-":"v",".--":"w","-..-":"x","-.--":"y","--..":"z",
-    "/":" ","":""
-  };
-  // Accept dot/dash separated by spaces and words separated by 2+ spaces or '/'
-  const words = t.trim().split(/\s{2,}|\//g);
-  return words.map(w => w.split(/\s+/).map(sym => M[sym.toLowerCase()] || '?').join('')).join(' ');
-}
-
-function binToText(t){
-  try {
-    if(!/^[01\s]+$/.test(t)) return null;
-    const bits = t.replace(/\s+/g,'');
-    if(bits.length % 8 !== 0) return null;
-    return bits.match(/.{8}/g).map(b => String.fromCharCode(parseInt(b,2))).join('');
-  } catch(e) { return null; }
-}
-
-// --- Vigenere small brute (keys length 1..3) ---
-function vignereDecrypt(text,key){
-  let o = "";
-  key = key.toLowerCase();
-  for(let i=0;i<text.length;i++){
-    const c = text[i];
-    if(/[a-zA-Z]/.test(c)){
-      const base = c <= 'Z' ? 65 : 97;
-      const k = key[i % key.length].charCodeAt(0) - 97;
-      o += String.fromCharCode((c.charCodeAt(0) - base - k + 26) % 26 + base);
-    } else o += c;
-  }
-  return o;
-}
-
-function generateAlphaKeys(maxLen){
-  const letters = 'abcdefghijklmnopqrstuvwxyz';
-  const results = [];
-  function gen(prefix, len){
-    if(prefix.length === len){ results.push(prefix); return; }
-    for(let i=0;i<letters.length;i++) gen(prefix + letters[i], len);
-  }
-  for(let l=1;l<=maxLen;l++) gen('', l);
-  return results; // careful: for maxLen=3 this is 26 + 26^2 + 26^3 = ~18278 keys -> still OK for short text
-}
-
-// --- XOR single-byte bruteforce (operates on char codes) ---
-function xorBrute(text){
-  const arr = [];
-  for(let k=1;k<256;k++){
-    let out = '';
-    for(let i=0;i<text.length;i++){
-      out += String.fromCharCode(text.charCodeAt(i) ^ k);
-    }
-    arr.push({k,out});
-  }
-  return arr;
-}
-
-// --- simple scorer ---
-const COMMON = ["the","and","you","that","ini","yang","apa","flag","kode","ctf","saya","kamu","akan","bisa"];
-function score(t){
-  if(!t) return -1;
-  t = t.toLowerCase();
-  let s = 0;
-  for(const w of COMMON) if(t.includes(w)) s++;
-  // bonus for printable ratio
-  const printable = (t.split('').filter(c => c >= ' ' && c <= '~').length) / Math.max(1, t.length);
-  return s + printable;
-}
-
-// --- Main analyze ---
-function analyze(){
-  const text = document.getElementById('inputText').value;
-  if(!text){ document.getElementById('output').innerText = 'Masukkan teks terlebih dahulu.'; return; }
-
-  let out = '';
-  let best = {score:-999, method:'', result:''};
-
-  // ROT 1..25
-  out += '=== ROT ===\n';
-  for(let i=1;i<=25;i++){
-    const r = rot(text, i);
-    const sc = score(r);
-    out += `ROT-${i}: (score=${sc.toFixed(3)}) ${r}\n`;
-    if(sc > best.score) best = {score:sc, method:`ROT-${i}`, result:r};
-  }
-
-  // Atbash
-  out += '\n=== Atbash ===\n';
-  const ab = atbash(text);
-  out += `(score=${score(ab).toFixed(3)}) ${ab}\n`;
-  if(score(ab) > best.score) best = {score:score(ab), method:'Atbash', result:ab};
-
-  // Base64
-  out += '\n=== Base64 ===\n';
-  const b64 = decodeBase64(text);
-  out += (b64 ? `(score=${score(b64).toFixed(3)}) ${b64}` : 'Invalid Base64') + '\n';
-  if(b64 && score(b64) > best.score) best = {score:score(b64), method:'Base64', result:b64};
-
-  // Hex
-  out += '\n=== Hex ===\n';
-  const hx = decodeHex(text);
-  out += (hx ? `(score=${score(hx).toFixed(3)}) ${hx}` : 'Invalid Hex') + '\n';
-  if(hx && score(hx) > best.score) best = {score:score(hx), method:'Hex', result:hx};
-
-  // Reverse
-  out += '\n=== Reverse ===\n';
-  const rv = reverseText(text);
-  out += `(score=${score(rv).toFixed(3)}) ${rv}\n`;
-  if(score(rv) > best.score) best = {score:score(rv), method:'Reverse', result:rv};
-
-  // URL Decode
-  out += '\n=== URL Decode ===\n';
-  const ud = urlDecode(text);
-  out += (ud ? `(score=${score(ud).toFixed(3)}) ${ud}` : 'Invalid URL encoding') + '\n';
-  if(ud && score(ud) > best.score) best = {score:score(ud), method:'URL Decode', result:ud};
-
-  // Binary
-  out += '\n=== Binary ===\n';
-  const bt = binToText(text);
-  out += (bt ? `(score=${score(bt).toFixed(3)}) ${bt}` : 'Invalid Binary') + '\n';
-  if(bt && score(bt) > best.score) best = {score:score(bt), method:'Binary', result:bt};
-
-  // Morse
-  out += '\n=== Morse ===\n';
-  const ms = morseDecode(text);
-  out += `(score=${score(ms).toFixed(3)}) ${ms}\n`;
-  if(score(ms) > best.score) best = {score:score(ms), method:'Morse', result:ms};
-
-  // Vigenere short brute (1..3)
-  out += '\n=== Vigenere (keys len 1..3 brute) ===\n';
-  const keys = generateAlphaKeys(3);
-  // To keep UI responsive, only evaluate scoring for the first N keys if text is long
-  const MAX_KEYS = (text.length > 200) ? 2000 : keys.length; // reduce if very long
-  for(let i=0;i<Math.min(keys.length, MAX_KEYS);i++){
-    const k = keys[i];
-    const r = vignereDecrypt(text, k);
-    const sc = score(r);
-    if(i < 50) out += `key=${k} (score=${sc.toFixed(3)}): ${r}\n`;
-    if(sc > best.score) best = {score:sc, method:`Vigenere key=${k}`, result:r};
-  }
-  if(keys.length > MAX_KEYS) out += `...skipped ${keys.length - MAX_KEYS} keys for performance\n`;
-
-  // XOR single-byte brute
-  out += '\n=== XOR single-byte bruteforce ===\n';
-  const xr = xorBrute(text);
-  // only show top candidates
-  let xorBestShown = 0;
-  for(const x of xr){
-    const sc = score(x.out);
-    if(sc > best.score) best = {score:sc, method:`XOR key=${x.k}`, result:x.out};
-    if(sc > 0 && xorBestShown < 10){ out += `key=${x.k} (score=${sc.toFixed(3)}): ${x.out}\n`; xorBestShown++; }
-  }
-  if(xorBestShown===0) out += 'No promising XOR results shown.\n';
-
-  // Final best
-  out += '\n=== BEST MATCH ===\n';
-  out += `Method: ${best.method}\nResult: ${best.result}\n`;
-
-  document.getElementById('output').innerText = out;
-}
-</script>
+    <div class="container">
+        <h1>Decryption Tool</h1>
+        <p>Select an encryption method, provide the encrypted text and key(s), then click Decrypt.</p>
+        
+        <label for="method">Encryption Method:</label>
+        <select id="method">
+            <option value="caesar">Caesar Cipher</option>
+            <option value="vigenere">Vigenère Cipher</option>
+            <option value="aes">AES</option>
+            <option value="rsa">RSA</option>
+        </select>
+        
+        <label for="input">Encrypted Text:</label>
+        <textarea id="input" placeholder="Paste encrypted text here..."></textarea>
+        
+        <label for="key">Key (or Keyword for Vigenère):</label>
+        <input type="text" id="key" placeholder="Enter key...">
+        
+        <label for="iv" id="iv-label" style="display:none;">IV (for AES, hex):</label>
+        <input type="text" id="iv" placeholder="Enter IV..." style="display:none;">
+        
+        <label for="private-key" id="private-key-label" style="display:none;">Private Key (for RSA, PEM):</label>
+        <textarea id="private-key" placeholder="Paste private key..." style="display:none;"></textarea>
+        
+        <button id="decrypt-btn">Decrypt</button>
+        
+        <div id="output" class="output"></div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbn/1.4.0/jsbn.min.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
