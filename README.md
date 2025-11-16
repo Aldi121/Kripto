@@ -1,0 +1,2 @@
+# Kripto
+Untuk kripto
