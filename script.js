@@ -40,9 +40,21 @@ document.getElementById('decrypt-btn').addEventListener('click', function() {
             case 'vigenere':
                 result = vigenereDecrypt(input, key);
                 break;
+            case 'rot13':
+                result = rot13Decrypt(input);
+                break;
+            case 'xor':
+                result = xorDecrypt(input, key);
+                break;
             case 'aes':
                 const iv = document.getElementById('iv').value;
                 result = aesDecrypt(input, key, iv);
+                break;
+            case 'des':
+                result = desDecrypt(input, key);
+                break;
+            case 'blowfish':
+                result = blowfishDecrypt(input, key);
                 break;
             case 'rsa':
                 const privateKey = document.getElementById('private-key').value;
@@ -86,9 +98,41 @@ function vigenereDecrypt(text, keyword) {
     }).join('');
 }
 
+// ROT13 Decrypt (same as encrypt, since it's symmetric)
+function rot13Decrypt(text) {
+    return text.split('').map(char => {
+        if (char.match(/[a-z]/i)) {
+            const code = char.charCodeAt(0);
+            const base = code >= 65 && code <= 90 ? 65 : 97;
+            return String.fromCharCode(((code - base + 13) % 26) + base);
+        }
+        return char;
+    }).join('');
+}
+
+// XOR Cipher Decrypt (same as encrypt, since it's symmetric)
+function xorDecrypt(text, key) {
+    return text.split('').map((char, i) => {
+        const keyChar = key[i % key.length];
+        return String.fromCharCode(char.charCodeAt(0) ^ keyChar.charCodeAt(0));
+    }).join('');
+}
+
 // AES Decrypt (assumes input is base64, key/iv as strings)
 function aesDecrypt(encrypted, key, iv) {
     const decrypted = CryptoJS.AES.decrypt(encrypted, key, { iv: CryptoJS.enc.Hex.parse(iv) });
+    return decrypted.toString(CryptoJS.enc.Utf8);
+}
+
+// DES Decrypt (assumes input is base64, key as string)
+function desDecrypt(encrypted, key) {
+    const decrypted = CryptoJS.DES.decrypt(encrypted, key);
+    return decrypted.toString(CryptoJS.enc.Utf8);
+}
+
+// Blowfish Decrypt (assumes input is base64, key as string)
+function blowfishDecrypt(encrypted, key) {
+    const decrypted = CryptoJS.Blowfish.decrypt(encrypted, key);
     return decrypted.toString(CryptoJS.enc.Utf8);
 }
 
