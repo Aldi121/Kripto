@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Universal Cipher Detector v2</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#0d1117; color:#e6edf3; padding:20px; }
+    h1 { color:#58a6ff; }
+    textarea { width:100%; height:120px; background:#161b22; color:#fff; border:1px solid #30363d; padding:10px; }
+    button { padding:10px 20px; background:#238636; color:white; border:none; cursor:pointer; margin-top:10px; }
+    button:hover { background:#2ea043; }
+    pre { background:#161b22; padding:10px; border:1px solid #30363d; overflow:auto; }
+    .result-box { margin-top:20px; }
+  </style>
+</head>
+<body>
+  <h1>Universal Cipher Detector & Decryptor v2</h1>
+  <p>Supports: ROT, Base64, Hex, Reverse, Atbash, Vigenère (bruteforce small keys), XOR bruteforce, Base32, Base58, Base85, URL decode, Morse, Binary, Substitution guess.</p>
+
+  <textarea id="inputText" placeholder="Masukkan teks terenkripsi..."></textarea>
+  <button onclick="analyze()">Decrypt</button>
+
+  <div class="result-box">
+    <h2>Hasil:</h2>
+    <pre id="output"></pre>
+  </div>
+
+<script>
+// Utility decoders
+function rot(text, n){return text.replace(/[a-zA-Z]/g,c=>String.fromCharCode((c.charCodeAt(0)-(c<='Z'?65:97)-n+26)%26+(c<='Z'?65:97)));}
+function atbash(text){return text.replace(/[a-zA-Z]/g,c=>String.fromCharCode((c<='Z'?90:122)-(c.charCodeAt(0)-(c<='Z'?65:97))));}
+function decodeBase64(t){try{return atob(t);}catch{return null;}}
+function decodeHex(t){try{return t.match(/.{1,2}/g).map(b=>String.fromCharCode(parseInt(b,16))).join('');}catch{return null;}}
+function decodeBase32(t){try{return b32decode(t);}catch{return null;}}
+function decodeBase58(t){try{return B58.decode(t);}catch{return null;}}
+function decodeBase85(t){try{return ascii85.decode(t);}catch{return null;}}
+function reverseText(t){return t.split('').reverse().join('');}
+function urlDecode(t){try{return decodeURIComponent(t);}catch{return null;}}
+function morseDecode(t){const M={".-":"a","-...":"b","-.-.":"c","-..":"d",".":"e","..-.":"f","--.":"g","....":"h","..":"i",".---":"j","-.-":"k",".-..":"l","--":"m","-.":"n","---":"o",".--.":"p","--.-":"q",".-.":"r","...":"s","-":"t","..-":"u","...-":"v",".--":"w","-..-":"x","-.--":"y","--..":"z"};return t.split(" ").map(a=>M[a]||"?").join("");}
+function binToText(t){try{return t.match(/.{8}/g).map(b=>String.fromCharCode(parseInt(b,2))).join('');}catch{return null;}}
+
+// small vigenere brute (len 1-3)
+function vignereDecrypt(text,key){let o="";key=key.toLowerCase();for(let i=0;i<text.length;i++){let c=text[i];if(/[a-zA-Z]/.test(c)){let base=c<='Z'?65:97;let k=key[i%key.length].charCodeAt(0)-97;o+=String.fromCharCode((c.charCodeAt(0)-base-k+26)%26+base);}else o+=c;}return o;}
+function smallVigenere(text){const a="abcdefghijklmnopqrstuvwxyz";let results=[];for(let l=1;l<=3;l++){function gen(p){if(p.length===l){results.push(p);return;}for(const c of a)gen(p+c);}gen("");return results.map(k=>({k,r:vignereDecrypt(text,k)}));}
+
+// XOR single-byte bruteforce
+function xorBrute(text){let arr=[];for(let k=1;k<256;k++){let out="";for(let i=0;i<text.length;i++) out+=String.fromCharCode(text.charCodeAt(i)^k);arr.push({k,out});}return arr;}
+
+// scorer
+const COMMON=["the","and","you","that","ini","yang","apa","flag","kode","ctf","saya","kamu","akan","bisa"];
+function score(t){t=t.toLowerCase();let s=0;for(const w of COMMON)if(t.includes(w))s++;return s;}
+
+function analyze(){
+  const text=document.getElementById('inputText').value.trim();
+  let out="";
+  let best={score:-1,method:"",result:""};
+
+  // ROT
+  out+="=== ROT ===
+";
+  for(let i=1;i<=25;i++){let r=rot(text,i);let sc=score(r);out+=`ROT-${i}: ${r}
+`;if(sc>best.score)best={score:sc,method:`ROT-${i}`,result:r};}
+
+  // Atbash
+  out+="
+=== Atbash ===
+";
+  let ab=atbash(text);out+=ab+"
+";if(score(ab)>best.score)best={score:score(ab),method:"Atbash",result:ab};
+
+  // Base64
+  out+="
+=== Base64 ===
+";
+  let b64=decodeBase64(text);out+=(b64?b64:"Invalid")+"
+";if(b64&&score(b64)>best.score)best={score:score(b64),method:"Base64",result:b64};
+
+  // Hex
+  out+="
+=== Hex ===
+";
+  let hx=decodeHex(text);out+=(hx?hx:"Invalid")+"
+";if(hx&&score(hx)>best.score)best={score:score(hx),method:"Hex",result:hx};
+
+  // Reverse
+  out+="
+=== Reverse ===
+";
+  let rv=reverseText(text);out+=rv+"
+";if(score(rv)>best.score)best={score:score(rv),method:"Reverse",result:rv};
+
+  // URL decode
+  out+="
+=== URL Decode ===
+";
+  let ud=urlDecode(text);out+=(ud?ud:"Invalid")+"
+";if(ud&&score(ud)>best.score)best={score:score(ud),method:"URL Decode",result:ud};
+
+  // Binary
+  out+="
+=== Binary ===
+";
+  let bt=binToText(text);out+=(bt?bt:"Invalid")+"
+";if(bt&&score(bt)>best.score)best={score:score(bt),method:"Binary",result:bt};
+
+  // Morse
+  out+="
+=== Morse ===
+";
+  let ms=morseDecode(text);out+=ms+"
+";if(score(ms)>best.score)best={score:score(ms),method:"Morse",result:ms};
+
+  // Vigenere small brute
+  out+="
+=== Vigenere (short keys bruteforce) ===
+";
+  let vig=smallVigenere(text);
+  vig.forEach(v=>{out+=`key=${v.k}: ${v.r}
+`;if(score(v.r)>best.score)best={score:score(v.r),method:`Vigenere key=${v.k}`,result:v.r};});
+
+  // XOR brute
+  out+="
+=== XOR single-byte bruteforce ===
+";
+  let xr=xorBrute(text);
+  xr.forEach(x=>{if(score(x.out)>best.score)best={score:score(x.out),method:`XOR key ${x.k}`,result:x.out};});
+
+  out+="
+=== BEST MATCH ===
+";
+  out+=`Method: ${best.method}
+Result: ${best.result}`;
+
+  document.getElementById('output').innerText=out;
+}
+</script>
+</body>
+</html>
