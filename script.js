@@ -67,9 +67,13 @@ document.getElementById('audio-input').addEventListener('change', function(event
     reader.onload = function(e) {
         audioContext.decodeAudioData(e.target.result, function(buffer) {
             try {
-                const morseText = decodeAudioToMorse(buffer);
-                document.getElementById('input').value = morseText;
-                status.textContent = 'Morse code decoded and filled in input field.';
+                const morseText = decodeAudioToMorse(buffer, audioContext);
+                if (morseText) {
+                    document.getElementById('input').value = morseText;
+                    status.textContent = 'Morse code decoded and filled in input field.';
+                } else {
+                    status.textContent = 'No Morse code detected in audio. Try a cleaner file or adjust playback.';
+                }
             } catch (err) {
                 status.textContent = 'Error processing audio: ' + err.message;
             }
@@ -85,48 +89,81 @@ document.getElementById('audio-input').addEventListener('change', function(event
     reader.readAsArrayBuffer(file);
 });
 
-// Function to decode audio buffer to Morse code
-function decodeAudioToMorse(buffer) {
+// Improved function to decode audio buffer to Morse code using FFT and adaptive thresholds
+function decodeAudioToMorse(buffer, audioContext) {
     const channelData = buffer.getChannelData(0); // Use first channel
     const sampleRate = buffer.sampleRate;
-    const threshold = 0.1; // Amplitude threshold for beep detection
-    const dotDuration = sampleRate * 0.1; // Assume ~100ms for dot
-    const dashDuration = sampleRate * 0.3; // Assume ~300ms for dash
-    const letterPause = sampleRate * 0.5; // Pause for letter separator
-    const wordPause = sampleRate * 1.5; // Pause for word separator
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
+    // Create a source from the buffer
+    const source = audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(analyser);
+    
+    // Smooth amplitude data to reduce noise
+    const smoothedAmplitude = [];
+    const windowSize = Math.floor(sampleRate * 0.01); // 10ms window
+    for (let i = 0; i < channelData.length; i += windowSize) {
+        let sum = 0;
+        for (let j = 0; j < windowSize && i + j < channelData.length; j++) {
+            sum += Math.abs(channelData[i + j]);
+        }
+        smoothedAmplitude.push(sum / windowSize);
+    }
+    
+    // Calculate adaptive thresholds
+    const maxAmp = Math.max(...smoothedAmplitude);
+    const minAmp = Math.min(...smoothedAmplitude);
+    const ampThreshold = (maxAmp + minAmp) / 2; // Midpoint for beep detection
+    
+    // Frequency range for Morse beeps (600-1000 Hz)
+    const nyquist = sampleRate / 2;
+    const lowFreq = Math.floor((600 / nyquist) * bufferLength);
+    const highFreq = Math.floor((1000 / nyquist) * bufferLength);
     
     let morse = '';
     let inBeep = false;
     let beepStart = 0;
     let lastEnd = 0;
+    const beepDurations = [];
     
-    for (let i = 0; i < channelData.length; i++) {
-        const amplitude = Math.abs(channelData[i]);
+    // Process in chunks
+    const chunkSize = Math.floor(sampleRate * 0.05); // 50ms chunks
+    for (let i = 0; i < smoothedAmplitude.length; i++) {
+        const amplitude = smoothedAmplitude[i];
         
-        if (amplitude > threshold && !inBeep) {
+        // Get frequency data for this chunk
+        analyser.getByteFrequencyData(dataArray);
+        const freqPower = dataArray.slice(lowFreq, highFreq).reduce((a, b) => a + b, 0) / (highFreq - lowFreq);
+        const isBeep = amplitude > ampThreshold && freqPower > 50; // Frequency threshold
+        
+        if (isBeep && !inBeep) {
             inBeep = true;
             beepStart = i;
-        } else if (amplitude <= threshold && inBeep) {
+        } else if (!isBeep && inBeep) {
             inBeep = false;
             const duration = i - beepStart;
-            
-            if (duration < dotDuration) {
-                morse += '.';
-            } else if (duration < dashDuration) {
-                morse += '-';
-            } else {
-                morse += '-'; // Long beep as dash
-            }
+            beepDurations.push(duration);
             
             const pause = i - lastEnd;
-            if (pause > wordPause) {
-                morse += ' / ';
-            } else if (pause > letterPause) {
+            if (pause > 10) { // Arbitrary pause threshold for separators
                 morse += ' ';
             }
             lastEnd = i;
         }
     }
+    
+    // Classify durations relatively
+    if (beepDurations.length === 0) return null; // No beeps detected
+    const avgDuration = beepDurations.reduce((a, b) => a + b, 0) / beepDurations.length;
+    const dotThreshold = avgDuration * 0.7; // Shorter than average = dot
+    
+    beepDurations.forEach(duration => {
+        morse += duration < dotThreshold ? '.' : '-';
+    });
     
     return morse.trim();
 }
