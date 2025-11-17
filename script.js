@@ -24,6 +24,13 @@ document.getElementById('method').addEventListener('change', function() {
     }
 });
 
+// Handle word clicks to auto-fill key
+document.querySelectorAll('.word').forEach(word => {
+    word.addEventListener('click', function() {
+        document.getElementById('key').value = this.getAttribute('data-word');
+    });
+});
+
 document.getElementById('decrypt-btn').addEventListener('click', function() {
     const method = document.getElementById('method').value;
     const input = document.getElementById('input').value;
@@ -45,6 +52,18 @@ document.getElementById('decrypt-btn').addEventListener('click', function() {
                 break;
             case 'xor':
                 result = xorDecrypt(input, key);
+                break;
+            case 'atbash':
+                result = atbashDecrypt(input);
+                break;
+            case 'railfence':
+                result = railFenceDecrypt(input, parseInt(key) || 3);
+                break;
+            case 'base64':
+                result = base64Decrypt(input);
+                break;
+            case 'morse':
+                result = morseDecrypt(input);
                 break;
             case 'aes':
                 const iv = document.getElementById('iv').value;
@@ -115,6 +134,81 @@ function xorDecrypt(text, key) {
     return text.split('').map((char, i) => {
         const keyChar = key[i % key.length];
         return String.fromCharCode(char.charCodeAt(0) ^ keyChar.charCodeAt(0));
+    }).join('');
+}
+
+// Atbash Cipher Decrypt (same as encrypt, since it's symmetric)
+function atbashDecrypt(text) {
+    return text.split('').map(char => {
+        if (char.match(/[a-z]/i)) {
+            const code = char.charCodeAt(0);
+            const base = code >= 65 && code <= 90 ? 65 : 97;
+            return String.fromCharCode(base + (25 - (code - base)));
+        }
+        return char;
+    }).join('');
+}
+
+// Rail Fence Cipher Decrypt
+function railFenceDecrypt(text, rails) {
+    const len = text.length;
+    const rail = Array.from({ length: rails }, () => []);
+    let down = false;
+    let row = 0;
+    
+    // Build the rail pattern
+    for (let i = 0; i < len; i++) {
+        rail[row].push(i);
+        if (row === 0 || row === rails - 1) down = !down;
+        row += down ? 1 : -1;
+    }
+    
+    // Fill rails with text
+    let idx = 0;
+    for (let r = 0; r < rails; r++) {
+        for (let i = 0; i < rail[r].length; i++) {
+            rail[r][i] = text[idx++];
+        }
+    }
+    
+    // Read off the rails
+    const result = [];
+    row = 0;
+    down = false;
+    for (let i = 0; i < len; i++) {
+        result[rail[row].shift()] = text[i];
+        if (row === 0 || row === rails - 1) down = !down;
+        row += down ? 1 : -1;
+    }
+    
+    return result.join('');
+}
+
+// Base64 Decrypt (decode)
+function base64Decrypt(text) {
+    try {
+        return atob(text);
+    } catch (e) {
+        return 'Invalid Base64 input.';
+    }
+}
+
+// Morse Code Decrypt
+function morseDecrypt(text) {
+    const morseToChar = {
+        '.-': 'A', '-...': 'B', '-.-.': 'C', '-..': 'D', '.': 'E',
+        '..-.': 'F', '--.': 'G', '....': 'H', '..': 'I', '.---': 'J',
+        '-.-': 'K', '.-..': 'L', '--': 'M', '-.': 'N', '---': 'O',
+        '.--.': 'P', '--.-': 'Q', '.-.': 'R', '...': 'S', '-': 'T',
+        '..-': 'U', '...-': 'V', '.--': 'W', '-..-': 'X', '-.--': 'Y',
+        '--..': 'Z', '.----': '1', '..---': '2', '...--': '3', '....-': '4',
+        '.....': '5', '-....': '6', '--...': '7', '---..': '8', '----.': '9',
+        '-----': '0'
+    };
+    
+    return text.split(' ').map(code => {
+        if (code === '/') return ' '; // Word separator
+        return morseToChar[code] || '?'; // Unknown code as ?
     }).join('');
 }
 

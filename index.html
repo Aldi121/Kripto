@@ -17,6 +17,10 @@
             <option value="vigenere">Vigenère Cipher</option>
             <option value="rot13">ROT13</option>
             <option value="xor">XOR Cipher</option>
+            <option value="atbash">Atbash Cipher</option>
+            <option value="railfence">Rail Fence Cipher</option>
+            <option value="base64">Base64</option>
+            <option value="morse">Morse Code</option>
             <option value="aes">AES</option>
             <option value="des">DES</option>
             <option value="blowfish">Blowfish</option>
@@ -26,7 +30,7 @@
         <label for="input">Encrypted Text:</label>
         <textarea id="input" placeholder="Paste encrypted text here..."></textarea>
         
-        <label for="key">Key (or Keyword for Vigenère):</label>
+        <label for="key">Key (or Keyword for Vigenère/Rails for Rail Fence):</label>
         <input type="text" id="key" placeholder="Enter key...">
         
         <label for="iv" id="iv-label" style="display:none;">IV (for AES, hex):</label>
@@ -34,6 +38,34 @@
         
         <label for="private-key" id="private-key-label" style="display:none;">Private Key (for RSA, PEM):</label>
         <textarea id="private-key" placeholder="Paste private key..." style="display:none;"></textarea>
+        
+        <div class="common-words">
+            <h3>Common Words (Click to Auto-Fill Key)</h3>
+            <div class="word-category">
+                <h4>Usual Daily Life Common Words</h4>
+                <div class="word-list">
+                    <span class="word" data-word="hello">hello</span>
+                    <span class="word" data-word="password">password</span>
+                    <span class="word" data-word="secret">secret</span>
+                    <span class="word" data-word="key">key</span>
+                    <span class="word" data-word="code">code</span>
+                    <span class="word" data-word="message">message</span>
+                </div>
+            </div>
+            <div class="word-category">
+                <h4>CTF Common Words</h4>
+                <div class="word-list">
+                    <span class="word" data-word="flag">flag</span>
+                    <span class="word" data-word="crypto">crypto</span>
+                    <span class="word" data-word="cipher">cipher</span>
+                    <span class="word" data-word="hack">hack</span>
+                    <span class="word" data-word="puzzle">puzzle</span>
+                    <span class="word" data-word="challenge">challenge</span>
+                    <span class="word" data-word="encrypt">encrypt</span>
+                    <span class="word" data-word="decrypt">decrypt</span>
+                </div>
+            </div>
+        </div>
         
         <button id="decrypt-btn">Decrypt</button>
         

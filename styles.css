@@ -17,7 +17,7 @@ body {
     padding: 30px;
     border-radius: 12px;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-    max-width: 650px;
+    max-width: 700px;
     width: 100%;
     border: 1px solid #e0e0e0;
     position: relative;
@@ -42,6 +42,15 @@ h1 {
     margin-bottom: 10px;
     font-size: 2.2em;
     font-weight: 600;
+}
+
+h3, h4 {
+    color: #667eea;
+    margin: 10px 0;
+}
+
+h4 {
+    font-size: 1.1em;
 }
 
 /* Paragraph styling */
@@ -109,6 +118,39 @@ button:active {
     transform: translateY(0);
 }
 
+/* Common words section */
+.common-words {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+
+.word-category {
+    margin-bottom: 15px;
+}
+
+.word-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.word {
+    background: #667eea;
+    color: white;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background 0.3s ease;
+}
+
+.word:hover {
+    background: #5a67d8;
+}
+
 /* Output area styling */
 .output {
     margin-top: 25px;
@@ -140,5 +182,9 @@ button:active {
     
     select, input, textarea, button {
         font-size: 0.95em;
+    }
+    
+    .word-list {
+        justify-content: center;
     }
 }
