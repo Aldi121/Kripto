@@ -94,6 +94,30 @@ textarea {
     resize: vertical;
 }
 
+/* Audio button styling */
+#audio-btn {
+    width: 100%;
+    padding: 12px;
+    margin-top: 8px;
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: 600;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#audio-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+}
+
+#audio-btn:active {
+    transform: translateY(0);
+}
+
 /* Button styling with gradient and hover effect */
 button {
     width: 100%;

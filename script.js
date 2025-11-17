@@ -31,6 +31,106 @@ document.querySelectorAll('.word').forEach(word => {
     });
 });
 
+// Handle audio upload and decoding with sanitization
+document.getElementById('audio-btn').addEventListener('click', function() {
+    document.getElementById('audio-input').click();
+});
+
+document.getElementById('audio-input').addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    const status = document.getElementById('audio-status');
+    
+    if (!file) {
+        status.textContent = 'No file selected.';
+        return;
+    }
+    
+    // Sanitize: Check file type (audio only)
+    const validTypes = ['audio/wav', 'audio/mpeg', 'audio/mp3', 'audio/ogg', 'audio/webm'];
+    if (!validTypes.includes(file.type)) {
+        status.textContent = 'Invalid file type. Please upload an audio file (e.g., WAV, MP3).';
+        return;
+    }
+    
+    // Sanitize: Check file size (limit to 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+        status.textContent = 'File too large. Please upload a file smaller than 10MB.';
+        return;
+    }
+    
+    status.textContent = 'Processing audio...';
+    
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        audioContext.decodeAudioData(e.target.result, function(buffer) {
+            try {
+                const morseText = decodeAudioToMorse(buffer);
+                document.getElementById('input').value = morseText;
+                status.textContent = 'Morse code decoded and filled in input field.';
+            } catch (err) {
+                status.textContent = 'Error processing audio: ' + err.message;
+            }
+        }, function(err) {
+            status.textContent = 'Error decoding audio file: ' + err.message + '. Ensure the file is a valid audio format.';
+        });
+    };
+    
+    reader.onerror = function() {
+        status.textContent = 'Error reading file. Please try again.';
+    };
+    
+    reader.readAsArrayBuffer(file);
+});
+
+// Function to decode audio buffer to Morse code
+function decodeAudioToMorse(buffer) {
+    const channelData = buffer.getChannelData(0); // Use first channel
+    const sampleRate = buffer.sampleRate;
+    const threshold = 0.1; // Amplitude threshold for beep detection
+    const dotDuration = sampleRate * 0.1; // Assume ~100ms for dot
+    const dashDuration = sampleRate * 0.3; // Assume ~300ms for dash
+    const letterPause = sampleRate * 0.5; // Pause for letter separator
+    const wordPause = sampleRate * 1.5; // Pause for word separator
+    
+    let morse = '';
+    let inBeep = false;
+    let beepStart = 0;
+    let lastEnd = 0;
+    
+    for (let i = 0; i < channelData.length; i++) {
+        const amplitude = Math.abs(channelData[i]);
+        
+        if (amplitude > threshold && !inBeep) {
+            inBeep = true;
+            beepStart = i;
+        } else if (amplitude <= threshold && inBeep) {
+            inBeep = false;
+            const duration = i - beepStart;
+            
+            if (duration < dotDuration) {
+                morse += '.';
+            } else if (duration < dashDuration) {
+                morse += '-';
+            } else {
+                morse += '-'; // Long beep as dash
+            }
+            
+            const pause = i - lastEnd;
+            if (pause > wordPause) {
+                morse += ' / ';
+            } else if (pause > letterPause) {
+                morse += ' ';
+            }
+            lastEnd = i;
+        }
+    }
+    
+    return morse.trim();
+}
+
 document.getElementById('decrypt-btn').addEventListener('click', function() {
     const method = document.getElementById('method').value;
     const input = document.getElementById('input').value;

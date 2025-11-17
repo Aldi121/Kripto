@@ -30,6 +30,11 @@
         <label for="input">Encrypted Text:</label>
         <textarea id="input" placeholder="Paste encrypted text here..."></textarea>
         
+        <label for="audio-input" id="audio-label">Audio File for Morse Code (optional):</label>
+        <input type="file" id="audio-input" accept="audio/*" style="display:none;">
+        <button id="audio-btn">Upload Audio for Morse Decoding</button>
+        <p id="audio-status" style="font-size: 0.9em; color: #666;"></p>
+        
         <label for="key">Key (or Keyword for Vigenère/Rails for Rail Fence):</label>
         <input type="text" id="key" placeholder="Enter key...">
         
